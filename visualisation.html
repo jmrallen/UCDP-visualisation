@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <link rel="shortcut icon" type="image/x-icon" href="https://raw.githubusercontent.com/ioromieh/ioromieh.github.io/main/favico.ico">
+</head>
+<meta charset='utf-8' />
+<title>Violent events in Afghanistan & Tajikistan: 1989-2021</title>
+<meta name='viewport' content='width=device-width, initial-scale=1' />
+<script src='https://api.mapbox.com/mapbox-gl-js/v2.13.0/mapbox-gl.js'></script>
+<script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+<script src="https://unpkg.com/mp4-h264@1.0.7/build/mp4-encoder.js"></script>
+<link href='https://api.mapbox.com/mapbox-gl-js/v2.13.0/mapbox-gl.css' rel='stylesheet' />
+<div id='map'></div>
+<body>
+
+<div id='console'>
+  <h1>Violent events in Afghanistan & Tajikistan: 1989-2021</h1>
+  <p>Data: <a href='https://ucdp.uu.se/'>Uppsala Conflict Data Program</a> Department of Peace and Conflict Research</p>
+  <div class='session'>
+    <h2>Casualties</h2>
+    <div class='row colors'>
+    </div>
+    <div class='row labels'>
+      <div class='label'>0</div>
+      <div class='label'></div>
+      <div class='label'></div>
+      <div class='label'></div>
+      <div class='label'></div>
+      <div class='label'>25+</div>
+    </div>
+  </div>
+  <div class='session' id='sliderbar'>
+    <h2>Year: <label id='active-year'>1989</label></h2>
+    <input id='slider' class='row' type='range' min='1989' max='2021' step='1' value='1989' />
+  </div>
+</div>
+
+<style>
+body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  }
+  
+  #map {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 100%;
+  }
+  
+  h1 {
+    font-size: 20px;
+    line-height: 30px;
+  }
+  
+  h2 {
+    font-size: 14px;
+    line-height: 20px;
+    margin-bottom: 10px;
+  }
+  
+  a {
+    text-decoration: none;
+    color: #2dc4b2;
+  }
+  
+  #console {
+    position: absolute;
+    width: 240px;
+    margin: 10px;
+    padding: 10px 20px;
+    background-color: white;
+  }
+  .session {
+  margin-bottom: 20px;
+}
+.row {
+  height: 12px;
+  width: 100%;
+}
+.colors {
+  background: linear-gradient(to right, #f1f075, #e55e5e);
+  margin-bottom: 5px;
+}
+.label {
+  width: 15%;
+  display: inline-block;
+  text-align: center;
+}
+#pitch-btn {
+  background-color: #3498db;
+  border: none;
+  color: white;
+  padding: 10px 20px;
+  text-align: center;
+  text-decoration: none;
+  display: inline-block;
+  font-size: 16px;
+  border-radius: 5px;
+  cursor: pointer;
+  margin-top: 10px;
+  transition: background-color 0.3s ease-in-out;
+}
+
+#pitch-btn:hover {
+  background-color: #2980b9;
+}
+</style>
+
+<script>
+	//Set up Mapbox
+  mapboxgl.accessToken = 'pk.eyJ1IjoiaW9yb21pZWgiLCJhIjoiY2xlcmRweTRyMDNuaDN2bzBiMGw4ZWo2byJ9.x1cKGLXR128QXXQlQa3O6A';
+  const map = new mapboxgl.Map({
+    container: 'map',
+    // Choose from Mapbox's core styles, or make your own style with Mapbox Studio
+    style: 'mapbox://styles/mapbox/satellite-streets-v12',
+    zoom: 8,
+    //center: [66.81, 34.43]
+  });
+  
+  // Make function for camera rotation and zoom-out
+function rotateCamera(timestamp) {
+  // Calculate the camera angle based on the timestamp
+  const speed = 0.0005; // Adjust the speed factor to control the rotation speed
+  const direction = -1; // Reverse the direction of rotation
+  const angle = (timestamp * speed * direction) % 360;
+
+  // Calculate the new camera position based on the angle and center point
+  const center = [69.81, 37.43];
+  const radius = 1.5;
+  const offsetLng = center[0] + radius * Math.cos(angle * Math.PI / 180);
+  const offsetLat = center[1] + radius * Math.sin(angle * Math.PI / 180);
+
+  // Update the camera position, pitch, and trigger a re-render
+  map.setCenter([offsetLng, offsetLat]);
+  map.setBearing(angle);
+  map.setPitch(45);
+
+  // Increase vertical exaggeration
+  const verticalExaggeration = 100; // Specify the vertical exaggeration factor
+  map.setTerrain({ exaggeration: verticalExaggeration });
+
+  // Zoom out slowly
+  //const targetZoom = 8; // Specify the target zoom level
+  //const duration = 5000; // Specify the duration for the zoom animation (in milliseconds)
+  //map.easeTo({
+    //zoom: targetZoom,
+    //duration: duration,
+    //easing: (t) => t, // Linear easing function for a smooth zoom-out effect
+  //});
+
+  // Request the next animation frame
+  requestAnimationFrame(rotateCamera);
+}
+
+
+  map.on('style.load', () => {
+    map.addSource('mapbox-dem', {
+    'type': 'raster-dem',
+    'url': 'mapbox://mapbox.mapbox-terrain-dem-v1',
+    'tileSize': 512,
+    'maxzoom': 14
+    });
+    // add the DEM source as a terrain layer with exaggerated height
+    map.setTerrain({ 'source': 'mapbox-dem', 'exaggeration': 1.5 });
+  });
+
+  //Add data
+  map.on('load', async () => {
+    map.once('idle', () => { 
+    rotateCamera(0); // Start the camera rotation animation
+    
+  
+    //Set up hex grid
+    var bbox = [59.46052141185277,28.578377031819187,75.84005654475624,43.53118996496718];
+    var cellSide = 25;
+    var options = {units: 'kilometers'};
+    var hexgrid = turf.hexGrid(bbox, cellSide, options);
+    
+    // Define the URL of the GeoJSON file and the target year
+    var url = 'https://raw.githubusercontent.com/ioromieh/ioromieh.github.io/90958bbfea1d2fe931cadf294acf015c359b53d4/UCDP_filtered2.geojson';
+    var targetYear = 1989;
+
+    // Initialize variable to keep track of fill-extrusion-opacity level
+    var fillExtrusionOpacity = 0.5;
+
+    // Add event listener to change camera event
+    map.on('render', function() {
+      
+      // Set fill-extrusion-opacity to new value
+      map.setPaintProperty('hexgrid', 'fill-extrusion-opacity', fillExtrusionOpacity);
+    });
+
+    // Add slider to page
+    document.getElementById('slider').addEventListener('input', (event) => {
+      // Update targetYear with slider value
+      targetYear = parseInt(event.target.value);
+  
+      // Fetch the GeoJSON data from the URL
+      fetch(url)
+      .then(response => response.json())
+      .then(data => {
+        // Filter the GeoJSON data for the target year
+        var filteredData = data.features.filter(feature => feature.properties.year === targetYear);
+
+        // Convert the filtered GeoJSON data to turf.js format
+        var turfPoints = turf.featureCollection(filteredData);
+
+        // Count points in hexagons and attach to hexagons as a property
+        var collected = turf.collect(hexgrid, turfPoints, 'best_est', 'totalsum');
+          
+        // Make a 'deep copy' of the 'collected' object so it isn't altered by hexgridWithCount code below... otherwise when the 'lazy evaluation' of 'console.log(collected)' above happens, you will see pt_count properties, which would be even more confusing than this comment!
+        var collected_copy = JSON.parse(JSON.stringify(collected))
+        
+        var hexgridWithCount = turf.featureCollection(collected_copy.features.map(function(feature) {
+          if (feature.properties.totalsum) {
+            feature.properties.pt_count = feature.properties.totalsum.length;
+          } else {
+            feature.properties.pt_count = 0;
+          }
+          delete feature.properties.totalsum;
+          return feature;
+        }));
+        console.log(hexgridWithCount);
+        if(map.getLayer('hexgrid') !== undefined) {
+          map.removeLayer('hexgrid');
+          map.removeSource('hexgrid');
+        }
+        map.addSource('hexgrid', {
+          'type': 'geojson',
+          'data': hexgridWithCount
+        });
+        var heightRamp = [ [0, 0], [1, 500], [2, 1000], [3, 1500] ];
+        var colorRamp = [  [0, '#f1f075'],[1, '#f0d44e'],[2, '#eebf41'],[3, '#ebaa34'],[4, '#e99628'],[5, '#e6831e'],[6, '#e27015'],[7, '#de5d0d'],[8, '#db4a06'],[25, '#e55e5e']];
+        
+        // If the layer is not visible, add it to the map
+        map.addLayer({
+          'id': 'hexgrid',
+          'type': 'fill-extrusion',
+          'source': 'hexgrid',
+          'paint': {
+            'fill-extrusion-color': {
+              property: 'pt_count',
+              stops: colorRamp
+            },
+            'fill-extrusion-height': ['*', ['get', 'pt_count'], 5000],
+            "fill-extrusion-height-transition": {
+              duration: 2000
+            },
+            "fill-extrusion-color-transition": {
+              duration: 2000
+            },
+            'fill-extrusion-opacity': 0
+          },
+          'filter': ['!=', 'pt_count', 0], // Only display features with non-zero pt_count values
+          'maxzoom': 14 // hexbins will disappear when zoomed in past level 9
+        });          
+      });
+    });
+    // Set up the initial target year
+    var targetYear = 1989;
+
+    // Function to update the slider and trigger the input event
+    function updateSlider() {
+      // Update the target year by incrementing it by 1
+      targetYear++;
+
+      // Update the slider value and text in the UI
+      document.getElementById('slider').value = targetYear;
+      document.getElementById('active-year').innerText = targetYear;
+
+      // Check if the conflict_data layer exists
+      if (map.getLayer('conflict_data')) {
+        // Update the filter
+        map.setFilter('conflict_data', ['==', ['number', ['get', 'year']], targetYear]);
+      }
+
+  // Fetch the GeoJSON data from the URL
+  fetch(url)
+    .then(response => response.json())
+    .then(data => {
+      // Filter the GeoJSON data for the target year
+      var filteredData = data.features.filter(feature => feature.properties.year === targetYear);
+
+      // Convert the filtered GeoJSON data to turf.js format
+      var turfPoints = turf.featureCollection(filteredData);
+
+      // Count points in hexagons and attach to hexagons as a property
+      var collected = turf.collect(hexgrid, turfPoints, 'best_est', 'totalsum');
+
+      // Make a 'deep copy' of the 'collected' object so it isn't altered by hexgridWithCount code below... otherwise when the 'lazy evaluation' of 'console.log(collected)' above happens, you will see pt_count properties, which would be even more confusing than this comment!
+      var collected_copy = JSON.parse(JSON.stringify(collected))
+
+      var hexgridWithCount = turf.featureCollection(collected_copy.features.map(function(feature) {
+        if (feature.properties.totalsum) {
+          feature.properties.pt_count = feature.properties.totalsum.length;
+        } else {
+          feature.properties.pt_count = 0;
+        }
+        delete feature.properties.totalsum;
+        return feature;
+      }));
+      
+      if (map.getSource('hexgrid')) {
+        // Update the hexgrid source with the new data
+        map.getSource('hexgrid').setData(hexgridWithCount);
+      } else {
+        // Add the hexgrid source and layer to the map
+        map.addSource('hexgrid', {
+          'type': 'geojson',
+          'data': hexgridWithCount
+        });
+
+        map.addLayer({
+          'id': 'hexgrid',
+          'type': 'fill-extrusion',
+          'source': 'hexgrid',
+          'paint': {
+            'fill-extrusion-color': {
+              property: 'pt_count',
+              stops: colorRamp
+            },
+            'fill-extrusion-height': ['*', ['get', 'pt_count'], 5000],
+            "fill-extrusion-height-transition": {
+              duration: 2000
+            },
+            "fill-extrusion-color-transition": {
+              duration: 2000
+            },
+            'fill-extrusion-opacity': 0
+          },
+          'filter': ['!=', 'pt_count', 0], // Only display features with non-zero pt_count values
+          'maxzoom': 14 // hexbins will disappear when zoomed in past level 9
+        });
+      }
+    });
+}
+
+// Manually trigger the slider input event to initialize grid with the default target year
+var event = new Event('input');
+slider.dispatchEvent(event);
+
+// Add slider update function to be called every 2 seconds
+setInterval(updateSlider, 2000);
+
+map.on('load', async () => {
+    map.addSource('dem', {type: 'raster-dem', url: 'mapbox://mapbox.mapbox-terrain-dem-v1'});
+    map.setTerrain({source: 'dem', exaggeration: 1.5});
+
+    // wait until the map settles
+    await map.once('idle');
+
+    // uncomment to fine-tune animation without recording:
+    // animate(); return;
+
+    // don't forget to enable WebAssembly SIMD in chrome://flags for faster encoding
+    const supportsSIMD = await simd();
+
+    // initialize H264 video encoder
+    const Encoder = await loadEncoder({simd: supportsSIMD});
+
+    const gl = map.painter.context.gl;
+    const width = gl.drawingBufferWidth;
+    const height = gl.drawingBufferHeight;
+
+    const encoder = Encoder.create({
+        width,
+        height,
+        fps: 60,
+        kbps: 64000,
+        rgbFlipY: true
+    });
+
+    // stub performance.now for deterministic rendering per-frame (only available in dev build)
+    let now = performance.now();
+    mapboxgl.setNow(now);
+
+    const ptr = encoder.getRGBPointer(); // keep a pointer to encoder WebAssembly heap memory
+
+    function frame() {
+        // increment stub time by 16.6ms (60 fps)
+        now += 1000 / 60;
+        mapboxgl.setNow(now);
+
+        const pixels = encoder.memory().subarray(ptr); // get a view into encoder memory
+        gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels); // read pixels into encoder
+        encoder.encodeRGBPointer(); // encode the frame
+    }
+
+    map.on('render', frame); // set up frame-by-frame recording
+
+    await animate(); // run all the animations
+
+    // stop recording
+    map.off('render', frame);
+    mapboxgl.restoreNow();
+    
+    const mp4 = encoder.end();
+
+    function downloadVideo(data, filename) {
+      const anchor = document.createElement("a");
+      anchor.href = URL.createObjectURL(new Blob([data], { type: "video/mp4" }));
+      anchor.download = filename;
+      document.body.appendChild(anchor); // Append anchor to the body
+      anchor.click();
+      document.body.removeChild(anchor); // Remove anchor from the body
+    }
+
+    downloadVideo(mp4, "mapbox-gl.mp4");
+
+    // make sure to run `ffmpeg -i mapbox-gl.mp4 mapbox-gl-optimized.mp4` to compress the video
+});
+
+
+  });
+});
+
+ 
+
+  
+  
+</script>
+</body>
+</html>
